@@ -1,0 +1,6 @@
+{
+  "name": "Fidel - Laboratorio de Agente Comercial IA KrakeDev",
+  "description": "Laboratorio y Prototipo de Pruebas de Fidel: Agente Comercial Multi-tenant con Extracción Comercial en Vivo, Memoria Incremental, Handoff Humano y Trazabilidad de Herramientas para Clear Minds / KrakeDev.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
