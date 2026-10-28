@@ -9,15 +9,20 @@ import {
   Zap,
   CheckCircle2,
   Lock,
+  Activity,
+  Radio,
+  XCircle,
 } from 'lucide-react';
 import type {
   ChannelAccountSummary,
+  SupportedChannel,
 } from '../../entities/omnichannel/types';
 import { ChannelBadge, ChannelIcon, CHANNEL_META } from '../../shared/ui/channel-badge';
 import {
   API_BASE,
   fetchIntegrationStatus,
   updateIntegrationCredentials,
+  testChannelApiConnection,
 } from '../../shared/api/fidel-hub-client';
 
 interface ChannelsConfigViewProps {
@@ -55,12 +60,91 @@ export function ChannelsConfigView({
     hasWhatsappBusinessAccountId: false,
   });
 
+  // Test Connection States
+  const [testingChannel, setTestingChannel] = useState<string | null>(null);
+  const [testResults, setTestResults] = useState<
+    Record<
+      string,
+      {
+        ok: boolean;
+        message: string;
+        details?: any;
+      }
+    >
+  >({});
+
   useEffect(() => {
     fetchIntegrationStatus().then((st) => {
       setMetaStatus(st);
       if (st.whatsappPhoneNumberId) setMetaPhoneId(st.whatsappPhoneNumberId);
     });
   }, []);
+
+  const handleTestMetaConnection = async () => {
+    setTestingChannel('META_WHATSAPP');
+    try {
+      const res = await testChannelApiConnection('WHATSAPP', {
+        externalAccountId: metaPhoneId.trim() || undefined,
+        accessToken: metaToken.trim() || undefined,
+      });
+      setTestResults((prev) => ({
+        ...prev,
+        META_WHATSAPP: {
+          ok: res.ok,
+          message: res.message,
+          details: res.details,
+        },
+      }));
+      if (res.ok) {
+        onNotify('✅ Meta Cloud API: Conexión exitosa y número verificado');
+      } else {
+        onNotify(`❌ Error Meta API: ${res.message}`);
+      }
+    } catch (err: any) {
+      setTestResults((prev) => ({
+        ...prev,
+        META_WHATSAPP: {
+          ok: false,
+          message: err?.message || 'Error de red al probar conexión con Meta',
+        },
+      }));
+    } finally {
+      setTestingChannel(null);
+    }
+  };
+
+  const handleTestChannel = async (acc: ChannelAccountSummary, customParams?: any) => {
+    setTestingChannel(acc.id);
+    try {
+      const res = await testChannelApiConnection(acc.channel, {
+        externalAccountId: customParams?.externalAccountId || acc.externalAccountId || undefined,
+        accessToken: customParams?.accessToken || undefined,
+      });
+      setTestResults((prev) => ({
+        ...prev,
+        [acc.id]: {
+          ok: res.ok,
+          message: res.message,
+          details: res.details,
+        },
+      }));
+      if (res.ok) {
+        onNotify(`✅ ${acc.displayName}: Conexión exitosa con el proveedor`);
+      } else {
+        onNotify(`❌ ${acc.displayName}: ${res.message}`);
+      }
+    } catch (err: any) {
+      setTestResults((prev) => ({
+        ...prev,
+        [acc.id]: {
+          ok: false,
+          message: err?.message || 'Error de red al probar conexión',
+        },
+      }));
+    } finally {
+      setTestingChannel(null);
+    }
+  };
 
   const handleSaveMetaCredentials = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -170,7 +254,44 @@ export function ChannelsConfigView({
               </p>
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={handleTestMetaConnection}
+            disabled={testingChannel === 'META_WHATSAPP'}
+            className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-[0.99] border border-slate-700 text-slate-200 text-xs font-bold flex items-center gap-2 transition cursor-pointer"
+          >
+            {testingChannel === 'META_WHATSAPP' ? (
+              <div className="w-3.5 h-3.5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Radio className="w-3.5 h-3.5 text-emerald-400" />
+            )}
+            <span>Probar Conexión con Meta API</span>
+          </button>
         </div>
+
+        {/* Test Result Feedback for Meta */}
+        {testResults.META_WHATSAPP && (
+          <div
+            className={`p-3 rounded-xl border text-xs flex items-start gap-2.5 transition animate-fade-in ${
+              testResults.META_WHATSAPP.ok
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+            }`}
+          >
+            {testResults.META_WHATSAPP.ok ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+            ) : (
+              <XCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+            )}
+            <div>
+              <span className="font-bold">
+                {testResults.META_WHATSAPP.ok ? 'Verificación Exitosa: ' : 'Fallo de Verificación: '}
+              </span>
+              <span>{testResults.META_WHATSAPP.message}</span>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSaveMetaCredentials} className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
           <div>
@@ -228,11 +349,14 @@ export function ChannelsConfigView({
         </form>
       </div>
 
+      {/* Channel Accounts Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {accounts.map((acc) => {
           const meta = CHANNEL_META[acc.channel];
           const fullWebhookUrl = `${API_BASE}${acc.webhookEndpoint}`;
           const isEditing = editingId === acc.id;
+          const isTesting = testingChannel === acc.id;
+          const result = testResults[acc.id];
 
           return (
             <div
@@ -257,37 +381,42 @@ export function ChannelsConfigView({
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => handleToggleActive(acc.id)}
-                  className={`px-3 py-1 rounded-full text-xs font-semibold border transition ${
-                    acc.isActive
-                      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                      : 'bg-slate-800 text-slate-400 border-slate-700'
-                  }`}
-                >
-                  {acc.isActive ? 'Conectado' : 'Inactivo'}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleActive(acc.id)}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold border transition cursor-pointer ${
+                      acc.isActive
+                        ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                        : 'bg-slate-800 text-slate-400 border-slate-700'
+                    }`}
+                  >
+                    {acc.isActive ? 'Conectado' : 'Inactivo'}
+                  </button>
+                </div>
               </div>
 
               {/* Webhook Box */}
               <div className="p-3 rounded-xl bg-slate-950 border border-slate-800/90 space-y-2 text-xs">
                 <div className="flex items-center justify-between text-slate-400">
-                  <span className="font-semibold flex items-center gap-1.5">
+                  <span className="flex items-center gap-1.5 font-semibold text-slate-300">
                     <Zap className="w-3.5 h-3.5 text-amber-400" />
                     Webhook Endpoint ({acc.channel})
                   </span>
-                  <span className="text-[11px] font-mono text-emerald-400 flex items-center gap-1">
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    Token: {acc.webhookVerifyToken}
+                  <span className="text-[11px] text-emerald-400 font-mono flex items-center gap-1">
+                    <ShieldCheck className="w-3 h-3" />
+                    Token: {acc.webhookVerifyToken || 'fidel_verify'}
                   </span>
                 </div>
-                <div className="flex items-center justify-between gap-2 bg-slate-900 px-3 py-2 rounded-lg border border-slate-800 font-mono text-[11px] text-indigo-300">
-                  <span className="truncate">{fullWebhookUrl}</span>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 p-2 rounded-lg bg-slate-900 border border-slate-800 text-[11px] text-indigo-300 font-mono truncate">
+                    {fullWebhookUrl}
+                  </code>
                   <button
                     type="button"
                     onClick={() => copyWebhook(acc.id, fullWebhookUrl)}
-                    className="p-1 rounded hover:bg-slate-800 text-slate-300 shrink-0"
+                    className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition shrink-0 cursor-pointer"
+                    title="Copiar URL de Webhook"
                   >
                     {copiedId === acc.id ? (
                       <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -298,10 +427,29 @@ export function ChannelsConfigView({
                 </div>
               </div>
 
+              {/* Test Result Inline Feedback */}
+              {result && (
+                <div
+                  className={`p-2.5 rounded-xl border text-xs flex items-start gap-2 animate-fade-in ${
+                    result.ok
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                      : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                  }`}
+                >
+                  {result.ok ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  ) : (
+                    <XCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                  )}
+                  <span className="truncate">{result.message}</span>
+                </div>
+              )}
+
+              {/* Credentials / Editing Form */}
               {isEditing ? (
-                <div className="space-y-3 pt-2 border-t border-slate-800 text-xs">
+                <div className="space-y-3 pt-3 border-t border-slate-800 text-xs">
                   <div>
-                    <label className="block text-slate-400 mb-1">Nombre Visible del Canal</label>
+                    <label className="block text-slate-400 mb-1">Nombre Descriptivo</label>
                     <input
                       type="text"
                       value={displayName}
@@ -309,10 +457,10 @@ export function ChannelsConfigView({
                       className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-2.5">
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-slate-400 mb-1">
-                        ID Externo (Page ID / IGSID / OpenID)
+                        Account ID / FanPage ID
                       </label>
                       <input
                         type="text"
@@ -322,7 +470,7 @@ export function ChannelsConfigView({
                       />
                     </div>
                     <div>
-                      <label className="block text-slate-400 mb-1">Verify Token</label>
+                      <label className="block text-slate-400 mb-1">Webhook Verify Token</label>
                       <input
                         type="text"
                         value={verifyToken}
@@ -337,41 +485,70 @@ export function ChannelsConfigView({
                     </label>
                     <input
                       type="password"
-                      placeholder="Pegar nuevo Access Token de Meta Graph o TikTok Business..."
+                      placeholder="Pegar nuevo Access Token..."
                       value={accessToken}
                       onChange={(e) => setAccessToken(e.target.value)}
                       className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white font-mono"
                     />
                   </div>
-                  <div className="flex justify-end gap-2">
+                  <div className="flex items-center justify-between gap-2 pt-1">
                     <button
                       type="button"
-                      onClick={() => setEditingId(null)}
-                      className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300"
+                      onClick={() =>
+                        handleTestChannel(acc, {
+                          externalAccountId: externalId,
+                          accessToken,
+                        })
+                      }
+                      disabled={isTesting}
+                      className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold flex items-center gap-1.5 transition cursor-pointer"
                     >
-                      Cancelar
+                      {isTesting ? (
+                        <div className="w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Radio className="w-3 h-3 text-emerald-400" />
+                      )}
+                      <span>Probar estos Datos</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSave(acc.id)}
-                      className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold flex items-center gap-1"
-                    >
-                      <Save className="w-3.5 h-3.5" /> Guardar
-                    </button>
+
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditingId(null)}
+                        className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 cursor-pointer"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSave(acc.id)}
+                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold flex items-center gap-1 cursor-pointer"
+                      >
+                        <Save className="w-3.5 h-3.5" /> Guardar
+                      </button>
+                    </div>
                   </div>
                 </div>
               ) : (
                 <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 text-xs">
-                  <span className="text-slate-400 flex items-center gap-1.5">
-                    <Key className="w-3.5 h-3.5 text-emerald-400" />
-                    {acc.hasAccessToken
-                      ? 'Credenciales cifradas configuradas'
-                      : 'Modo Sandbox Local Activo'}
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleTestChannel(acc)}
+                    disabled={isTesting}
+                    className="text-slate-300 hover:text-white px-2.5 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-800 border border-slate-700 flex items-center gap-1.5 transition cursor-pointer"
+                  >
+                    {isTesting ? (
+                      <div className="w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Activity className="w-3.5 h-3.5 text-emerald-400" />
+                    )}
+                    <span>Probar Conexión</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => handleStartEdit(acc)}
-                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium transition"
+                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium transition cursor-pointer"
                   >
                     Configurar Credenciales
                   </button>

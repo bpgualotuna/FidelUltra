@@ -1039,4 +1039,48 @@ export async function updateIntegrationCredentials(dto: {
   return await res.json();
 }
 
+export async function testChannelApiConnection(
+  channel: SupportedChannel,
+  params?: {
+    accessToken?: string;
+    externalAccountId?: string;
+    businessAccountId?: string;
+  },
+): Promise<{
+  ok: boolean;
+  channel: SupportedChannel;
+  status: 'CONNECTED' | 'DISCONNECTED' | 'ERROR';
+  message: string;
+  details?: Record<string, any>;
+}> {
+  const token = getStoredAuthToken();
+  if (!token) {
+    return {
+      ok: false,
+      channel,
+      status: 'DISCONNECTED',
+      message: 'Inicia sesión para probar la conexión con Meta/TikTok.',
+    };
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/channels/test-connection`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ channel, ...params }),
+    });
+    return await res.json();
+  } catch (err: any) {
+    return {
+      ok: false,
+      channel,
+      status: 'ERROR',
+      message: `Error de red al conectar con el backend: ${err?.message}`,
+    };
+  }
+}
+
 export { API_BASE, FIDEL_MCP_DEFAULT_URL };
