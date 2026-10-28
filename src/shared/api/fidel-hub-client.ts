@@ -15,7 +15,7 @@ import type {
 const API_BASE =
   (import.meta as any).env?.VITE_API_URL || 'http://localhost:3001/api';
 const FIDEL_MCP_DEFAULT_URL =
-  (import.meta as any).env?.VITE_FIDEL_MCP_URL || 'http://localhost:3002/mcp';
+  (import.meta as any).env?.VITE_FIDEL_MCP_URL || 'http://localhost:4000/api/mcp';
 
 const STORAGE_KEYS = {
   CONVERSATIONS: 'fidel_omni_conversations_v2',
@@ -660,11 +660,74 @@ export async function executeMcpToolLive(
 
   const endpoint = (server?.endpointUrl || FIDEL_MCP_DEFAULT_URL).replace(/\/+$/, '');
 
-  // 1. Intentar vía JSON-RPC 2.0 o REST directo al endpoint del MCP
+  // 1. Intentar primero contra endpoint NestJS de FidelBack_MCP (/execute)
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 2200);
-    const res = await fetch(endpoint, {
+    const executeUrl = endpoint.endsWith('/execute') ? endpoint : `${endpoint}/execute`;
+    const mcpToolName =
+      toolName === 'fidel_consultar_catalogo'
+        ? 'cotizar_descuento_grupo'
+        : toolName === 'fidel_agendar_cita'
+        ? 'agendar_cita'
+        : toolName === 'fidel_transferir_humano'
+        ? 'transferir_a_humano'
+        : toolName;
+
+    const mcpArgs =
+      toolName === 'fidel_consultar_catalogo'
+        ? {
+            productKey: String(args.programa || 'ia_docencia').includes('fullstack')
+              ? 'aws_pack'
+              : 'ia_docencia',
+            participants: Number(args.participantes || 1),
+            paymentMode: 'cuotas',
+          }
+        : toolName === 'fidel_agendar_cita'
+        ? {
+            leadName: args.nombre_cliente || 'Prospecto Omnicanal',
+            leadContact: args.contacto || 'WhatsApp/Direct',
+            productKey: 'ia_docencia',
+            scheduledAt: args.fecha_hora || 'Próxima disponible',
+          }
+        : args;
+
+    const ctrl1 = new AbortController();
+    const t1 = setTimeout(() => ctrl1.abort(), 2000);
+    const res1 = await fetch(executeUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        toolName: mcpToolName,
+        arguments: mcpArgs,
+      }),
+      signal: ctrl1.signal,
+    });
+    clearTimeout(t1);
+
+    if (res1.ok) {
+      const data1 = await res1.json().catch(() => null);
+      if (data1 && (data1.success !== undefined || data1.data || data1.result)) {
+        return {
+          id: `trace_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          serverId: server?.id || 'mcp_fidel_official',
+          serverName: server?.name || 'FidelBack_MCP (Live)',
+          toolName,
+          arguments: args,
+          result: data1.data || data1.result || data1,
+          status: 'SUCCESS',
+          latencyMs: Math.max(12, Date.now() - start),
+          timestamp: new Date().toISOString(),
+        };
+      }
+    }
+  } catch {
+    /* continuar con JSON-RPC */
+  }
+
+  // 2. Intentar vía JSON-RPC 2.0 estándar
+  try {
+    const ctrl2 = new AbortController();
+    const t2 = setTimeout(() => ctrl2.abort(), 2000);
+    const res2 = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -673,19 +736,19 @@ export async function executeMcpToolLive(
         method: 'tools/call',
         params: { name: toolName, arguments: args },
       }),
-      signal: controller.signal,
+      signal: ctrl2.signal,
     });
-    clearTimeout(timer);
-    if (res.ok) {
-      const data: any = await res.json().catch(() => null);
-      if (data?.result) {
+    clearTimeout(t2);
+    if (res2.ok) {
+      const data2: any = await res2.json().catch(() => null);
+      if (data2?.result) {
         return {
           id: `trace_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
           serverId: server?.id || 'mcp_fidel_official',
           serverName: server?.name || 'FidelMCP',
           toolName,
           arguments: args,
-          result: data.result,
+          result: data2.result,
           status: 'SUCCESS',
           latencyMs: Math.max(12, Date.now() - start),
           timestamp: new Date().toISOString(),
