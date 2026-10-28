@@ -12,10 +12,22 @@ import type {
   SupportedChannel,
 } from '../../entities/omnichannel/types';
 
-const API_BASE =
-  (import.meta as any).env?.VITE_API_URL || 'http://localhost:3001/api';
-const FIDEL_MCP_DEFAULT_URL =
-  (import.meta as any).env?.VITE_FIDEL_MCP_URL || 'http://localhost:4000/api/mcp';
+const isBrowserProd =
+  typeof window !== 'undefined' &&
+  window.location.hostname !== 'localhost' &&
+  window.location.hostname !== '127.0.0.1';
+
+export const API_BASE =
+  (import.meta as any).env?.VITE_API_URL ||
+  (isBrowserProd
+    ? 'https://fidelhub-back.onrender.com/api'
+    : 'http://localhost:3001/api');
+
+export const FIDEL_MCP_DEFAULT_URL =
+  (import.meta as any).env?.VITE_FIDEL_MCP_URL ||
+  (isBrowserProd
+    ? 'https://fidelback-mcp.onrender.com/api/mcp'
+    : 'http://localhost:4000/api/mcp');
 
 const STORAGE_KEYS = {
   CONVERSATIONS: 'fidel_omni_conversations_v2',
@@ -618,7 +630,19 @@ export function saveStoredMessagesMap(map: Record<string, OmniMessage[]>): void 
 }
 
 export function getStoredMcpServers(): McpServerSummary[] {
-  return loadFromStorage(STORAGE_KEYS.MCP_SERVERS, INITIAL_MCP_SERVERS);
+  const loaded = loadFromStorage(STORAGE_KEYS.MCP_SERVERS, INITIAL_MCP_SERVERS);
+  if (isBrowserProd) {
+    return loaded.map((s) => {
+      if (
+        s.id === 'mcp_fidel_official' &&
+        (s.endpointUrl.includes('localhost') || s.endpointUrl.includes('127.0.0.1'))
+      ) {
+        return { ...s, endpointUrl: FIDEL_MCP_DEFAULT_URL };
+      }
+      return s;
+    });
+  }
+  return loaded;
 }
 
 export function saveStoredMcpServers(servers: McpServerSummary[]): void {
@@ -1146,4 +1170,4 @@ export async function testChannelApiConnection(
   }
 }
 
-export { API_BASE, FIDEL_MCP_DEFAULT_URL };
+
