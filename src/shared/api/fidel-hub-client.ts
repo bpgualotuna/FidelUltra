@@ -13,7 +13,7 @@ import type {
 } from '../../entities/omnichannel/types';
 
 const API_BASE =
-  (import.meta as any).env?.VITE_API_URL || 'http://localhost:3001';
+  (import.meta as any).env?.VITE_API_URL || 'http://localhost:3001/api';
 const FIDEL_MCP_DEFAULT_URL =
   (import.meta as any).env?.VITE_FIDEL_MCP_URL || 'http://localhost:3002/mcp';
 
