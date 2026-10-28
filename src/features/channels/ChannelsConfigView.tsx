@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Globe,
   Copy,
@@ -7,12 +7,18 @@ import {
   Save,
   ShieldCheck,
   Zap,
+  CheckCircle2,
+  Lock,
 } from 'lucide-react';
 import type {
   ChannelAccountSummary,
 } from '../../entities/omnichannel/types';
 import { ChannelBadge, ChannelIcon, CHANNEL_META } from '../../shared/ui/channel-badge';
-import { API_BASE } from '../../shared/api/fidel-hub-client';
+import {
+  API_BASE,
+  fetchIntegrationStatus,
+  updateIntegrationCredentials,
+} from '../../shared/api/fidel-hub-client';
 
 interface ChannelsConfigViewProps {
   accounts: ChannelAccountSummary[];
@@ -31,6 +37,50 @@ export function ChannelsConfigView({
   const [externalId, setExternalId] = useState('');
   const [verifyToken, setVerifyToken] = useState('');
   const [accessToken, setAccessToken] = useState('');
+
+  // Meta Cloud API Tenant Credentials State
+  const [metaPhoneId, setMetaPhoneId] = useState('');
+  const [metaWabaId, setMetaWabaId] = useState('');
+  const [metaToken, setMetaToken] = useState('');
+  const [savingMeta, setSavingMeta] = useState(false);
+  const [metaStatus, setMetaStatus] = useState<{
+    hasWhatsappToken: boolean;
+    hasGeminiKey: boolean;
+    whatsappPhoneNumberId: string | null;
+    hasWhatsappBusinessAccountId: boolean;
+  }>({
+    hasWhatsappToken: false,
+    hasGeminiKey: false,
+    whatsappPhoneNumberId: null,
+    hasWhatsappBusinessAccountId: false,
+  });
+
+  useEffect(() => {
+    fetchIntegrationStatus().then((st) => {
+      setMetaStatus(st);
+      if (st.whatsappPhoneNumberId) setMetaPhoneId(st.whatsappPhoneNumberId);
+    });
+  }, []);
+
+  const handleSaveMetaCredentials = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingMeta(true);
+    try {
+      await updateIntegrationCredentials({
+        whatsappPhoneNumberId: metaPhoneId.trim() || undefined,
+        whatsappBusinessAccountId: metaWabaId.trim() || undefined,
+        whatsappAccessToken: metaToken.trim() || undefined,
+      });
+      const st = await fetchIntegrationStatus();
+      setMetaStatus(st);
+      setMetaToken('');
+      onNotify('Credenciales oficiales de Meta Cloud API guardadas y cifradas en Supabase.');
+    } catch (err: any) {
+      onNotify(`Error: ${err?.message || 'No se pudieron guardar las credenciales'}`);
+    } finally {
+      setSavingMeta(false);
+    }
+  };
 
   const handleStartEdit = (acc: ChannelAccountSummary) => {
     setEditingId(acc.id);
@@ -91,6 +141,91 @@ export function ChannelsConfigView({
             <span className="text-cyan-300 font-semibold">TikTok Business DM</span>.
           </p>
         </div>
+      </div>
+
+      {/* Meta Cloud API Enterprise Credentials */}
+      <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-900/60 border border-slate-800 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+              <Key className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold text-white">
+                  Credenciales de Meta Cloud API para tu Empresa
+                </h2>
+                {metaStatus.hasWhatsappToken ? (
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> Token Cifrado en Supabase
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                    <Lock className="w-3 h-3" /> Requiere Token Meta
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Configura el número y token de Meta for Developers para recibir y responder mensajes reales de WhatsApp e Instagram Direct desde esta ventana.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <form onSubmit={handleSaveMetaCredentials} className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">
+              WhatsApp Phone Number ID
+            </label>
+            <input
+              type="text"
+              placeholder="Ej: 104829384918234"
+              value={metaPhoneId}
+              onChange={(e) => setMetaPhoneId(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white font-mono placeholder-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">
+              WhatsApp Business Account ID (WABA)
+            </label>
+            <input
+              type="text"
+              placeholder="Ej: 293849201928374"
+              value={metaWabaId}
+              onChange={(e) => setMetaWabaId(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white font-mono placeholder-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">
+              Access Token (System User Permanent)
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="password"
+                placeholder={metaStatus.hasWhatsappToken ? '••••••••••••••••••••••••' : 'EAAG...'}
+                value={metaToken}
+                onChange={(e) => setMetaToken(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white font-mono placeholder-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+              />
+              <button
+                type="submit"
+                disabled={savingMeta}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white text-xs font-bold shrink-0 flex items-center gap-1.5 transition disabled:opacity-50 cursor-pointer"
+              >
+                {savingMeta ? (
+                  <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <Save className="w-3.5 h-3.5" />
+                )}
+                <span>Guardar</span>
+              </button>
+            </div>
+          </div>
+        </form>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

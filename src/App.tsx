@@ -24,6 +24,8 @@ import {
   Tag as TagIcon,
   Mail,
   Zap,
+  Building2,
+  LogOut,
 } from 'lucide-react';
 import type {
   SupportedChannel,
@@ -32,6 +34,7 @@ import type {
   McpServerSummary,
   ChannelAccountSummary,
   FidelTrainingRule,
+  AuthUserSession,
 } from './entities/omnichannel/types';
 import {
   ChannelBadge,
@@ -53,9 +56,12 @@ import {
   saveStoredRules,
   orchestrateFidelMcpReply,
   ORG_AGENTS,
+  getStoredAuthSession,
+  clearAuthSession,
 } from './shared/api/fidel-hub-client';
 import { McpHubView } from './features/mcp-hub/McpHubView';
 import { ChannelsConfigView } from './features/channels/ChannelsConfigView';
+import { LoginView } from './features/auth/LoginView';
 import FidelLabOriginal from './legacy-lab/FidelLabOriginal';
 
 type MainNavTab = 'inbox' | 'mcp_hub' | 'channels' | 'contacts' | 'legacy_lab';
@@ -113,6 +119,11 @@ export default function App() {
   );
   const [fidelRules, setFidelRules] = useState<FidelTrainingRule[]>(() =>
     getStoredRules(),
+  );
+
+  // Multi-tenant Authentication Session
+  const [session, setSession] = useState<AuthUserSession | null>(() =>
+    getStoredAuthSession(),
   );
 
   // Filters & Selection
@@ -508,6 +519,17 @@ export default function App() {
     return counts;
   }, [conversations]);
 
+  if (!session) {
+    return (
+      <LoginView
+        onLoginSuccess={(sess) => {
+          setSession(sess);
+          notify(`¡Bienvenido ${sess.displayName || ''}! Sesión iniciada.`);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="h-screen w-screen overflow-hidden bg-slate-950 text-slate-100 flex flex-col select-none">
       {/* Top Global Status Bar */}
@@ -518,16 +540,10 @@ export default function App() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-sm tracking-tight text-white">
-                FidelUltra Omnicanal
-              </span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                Nextline Engine + MCP Host
+              <span className="font-extrabold text-base tracking-tight text-white">
+                FidelUltra
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 hidden sm:block">
-              WhatsApp · Instagram · Facebook Messenger · TikTok · Cualquier Servidor MCP
-            </p>
           </div>
         </div>
 
@@ -599,12 +615,41 @@ export default function App() {
           </button>
         </nav>
 
-        {/* Active MCP Status indicator */}
-        <div className="hidden lg:flex items-center gap-2 text-xs">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-medium">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            FidelMCP Conectado
-          </span>
+        {/* Multi-Tenant Organization & User Profile */}
+        <div className="flex items-center gap-3 text-xs">
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-xl bg-slate-950 border border-slate-800 text-xs">
+            <Building2 className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="font-semibold text-white truncate max-w-[140px]">
+              {session.organizationName || 'Empresa'}
+            </span>
+            <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+              {session.role}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div
+              title={session.email}
+              className="w-7 h-7 rounded-full bg-gradient-to-tr from-indigo-600 to-violet-600 border border-indigo-400/40 flex items-center justify-center text-[11px] font-black text-white shadow-sm"
+            >
+              {session.displayName
+                ? session.displayName.substring(0, 2).toUpperCase()
+                : 'AD'}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                clearAuthSession();
+                setSession(null);
+                notify('Sesión cerrada correctamente.');
+              }}
+              title="Cerrar Sesión Empresarial"
+              className="p-1.5 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition cursor-pointer"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </header>
 

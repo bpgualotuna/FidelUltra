@@ -1,5 +1,17 @@
 export type SupportedChannel = 'WHATSAPP' | 'INSTAGRAM' | 'FACEBOOK' | 'TIKTOK';
 
+export interface AuthUserSession {
+  id: string;
+  email: string;
+  displayName: string | null;
+  role: 'SUPER_ADMIN' | 'ORG_ADMIN' | 'SUPERVISOR' | 'AGENT';
+  organizationId: string | null;
+  organizationName: string | null;
+  isSandbox: boolean;
+  hasCrm: boolean;
+  token: string;
+}
+
 export interface McpToolSchema {
   name: string;
   description: string;

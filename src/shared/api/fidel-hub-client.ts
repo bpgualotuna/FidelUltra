@@ -1,4 +1,5 @@
 import type {
+  AuthUserSession,
   ChannelAccountSummary,
   FidelTrainingRule,
   McpResourceSchema,
@@ -22,6 +23,8 @@ const STORAGE_KEYS = {
   MCP_SERVERS: 'fidel_omni_mcp_servers_v2',
   CHANNELS: 'fidel_omni_channels_v2',
   RULES: 'fidel_omni_rules_v2',
+  AUTH_TOKEN: 'fidel_ultra_auth_token_v1',
+  AUTH_USER: 'fidel_ultra_auth_user_v1',
 };
 
 export const OFFICIAL_FIDEL_TOOLS: McpToolSchema[] = [
@@ -886,6 +889,154 @@ export async function orchestrateFidelMcpReply(
   }
 
   return { replyText, traces };
+}
+
+// ==========================================
+// Multi-tenant Authentication & Integrations
+// ==========================================
+
+export function getStoredAuthToken(): string | null {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+  } catch {
+    return null;
+  }
+}
+
+export function getStoredAuthSession(): AuthUserSession | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.AUTH_USER);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveAuthSession(session: AuthUserSession, remember = true) {
+  try {
+    localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, session.token);
+    localStorage.setItem(STORAGE_KEYS.AUTH_USER, JSON.stringify(session));
+    if (!remember) {
+      sessionStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, session.token);
+    }
+  } catch (e) {
+    console.warn('No se pudo guardar la sesión en storage', e);
+  }
+}
+
+export function clearAuthSession() {
+  try {
+    localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.AUTH_USER);
+    sessionStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+  } catch (e) {
+    console.warn('Error al limpiar sesión', e);
+  }
+}
+
+export async function loginToHub(
+  email: string,
+  password: string,
+  remember = true,
+): Promise<AuthUserSession> {
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email.trim(), password }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(
+      errorData.message || 'Credenciales inválidas. Verifica tu correo y contraseña.',
+    );
+  }
+
+  const tokenData = await res.json();
+  const token = tokenData.access_token;
+
+  // Obtener perfil y tenant asociado con GET /auth/me
+  const meRes = await fetch(`${API_BASE}/auth/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!meRes.ok) {
+    throw new Error('No se pudo obtener el perfil de la empresa.');
+  }
+
+  const meData = await meRes.json();
+  const session: AuthUserSession = {
+    id: meData.id,
+    email: meData.email,
+    displayName: meData.displayName || 'Usuario Fidel',
+    role: meData.role,
+    organizationId: meData.organizationId,
+    organizationName: meData.organizationName || 'Empresa Principal',
+    isSandbox: meData.isSandbox ?? false,
+    hasCrm: meData.hasCrm ?? false,
+    token,
+  };
+
+  saveAuthSession(session, remember);
+  return session;
+}
+
+export async function fetchIntegrationStatus(): Promise<{
+  hasWhatsappToken: boolean;
+  hasGeminiKey: boolean;
+  whatsappPhoneNumberId: string | null;
+  hasWhatsappBusinessAccountId: boolean;
+}> {
+  const token = getStoredAuthToken();
+  if (!token) {
+    return {
+      hasWhatsappToken: false,
+      hasGeminiKey: false,
+      whatsappPhoneNumberId: null,
+      hasWhatsappBusinessAccountId: false,
+    };
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/org/integrations`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error('Error al consultar integraciones');
+    return await res.json();
+  } catch {
+    return {
+      hasWhatsappToken: false,
+      hasGeminiKey: false,
+      whatsappPhoneNumberId: null,
+      hasWhatsappBusinessAccountId: false,
+    };
+  }
+}
+
+export async function updateIntegrationCredentials(dto: {
+  whatsappAccessToken?: string;
+  whatsappPhoneNumberId?: string;
+  whatsappBusinessAccountId?: string;
+  geminiApiKey?: string;
+}) {
+  const token = getStoredAuthToken();
+  if (!token) throw new Error('Sesión no válida o expirada.');
+
+  const res = await fetch(`${API_BASE}/org/integrations`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(dto),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'No se pudieron actualizar las credenciales de Meta');
+  }
+
+  return await res.json();
 }
 
 export { API_BASE, FIDEL_MCP_DEFAULT_URL };
