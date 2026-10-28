@@ -12,6 +12,7 @@ import {
   Sparkles,
   Globe,
   ShieldCheck,
+  Zap,
 } from 'lucide-react';
 import type {
   McpServerSummary,
@@ -337,6 +338,38 @@ export function McpHubView({ servers, onUpdateServers, onNotify }: McpHubViewPro
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => {
+              const next = servers.map((s) =>
+                s.id === 'mcp_fidel_official'
+                  ? { ...s, endpointUrl: 'https://fidelback-mcp.onrender.com/api/mcp' }
+                  : s,
+              );
+              onUpdateServers(next);
+              onNotify('✅ Conectado a Render Cloud: https://fidelback-mcp.onrender.com/api/mcp');
+            }}
+            className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-500/50 flex items-center gap-1.5 transition cursor-pointer shadow-lg shadow-emerald-950/30"
+          >
+            <Zap className="w-3.5 h-3.5 text-emerald-400" />
+            ⚡ Usar Render Cloud (Producción)
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const next = servers.map((s) =>
+                s.id === 'mcp_fidel_official'
+                  ? { ...s, endpointUrl: 'http://localhost:4000/api/mcp' }
+                  : s,
+              );
+              onUpdateServers(next);
+              onNotify('💻 Conectado a Localhost: http://localhost:4000/api/mcp');
+            }}
+            className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center gap-1.5 transition cursor-pointer"
+          >
+            <Cpu className="w-3.5 h-3.5 text-slate-400" />
+            💻 Usar Localhost (4000)
+          </button>
                         <span className="font-bold text-sm text-white">{srv.name}</span>
                         {srv.isDefault && (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
@@ -348,9 +381,19 @@ export function McpHubView({ servers, onUpdateServers, onNotify }: McpHubViewPro
                         </span>
                       </div>
                       <p className="text-xs text-slate-400">{srv.description}</p>
-                      <div className="flex items-center gap-2 text-[11px] font-mono text-indigo-300 pt-1">
-                        <Globe className="w-3.5 h-3.5" />
-                        <span>{srv.endpointUrl}</span>
+                      <div className="flex items-center gap-2 text-[11px] font-mono text-indigo-300 pt-1" onClick={(e) => e.stopPropagation()}>
+                        <Globe className="w-3.5 h-3.5 shrink-0 text-indigo-400" />
+                        <input
+                          type="text"
+                          value={srv.endpointUrl}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const next = servers.map((s) => (s.id === srv.id ? { ...s, endpointUrl: val } : s));
+                            onUpdateServers(next);
+                          }}
+                          placeholder="Endpoint URL del MCP (ej. https://fidelback-mcp.onrender.com/api/mcp)"
+                          className="bg-slate-950 border border-indigo-500/30 hover:border-indigo-400 focus:border-indigo-400 rounded-lg px-2.5 py-1 text-xs text-indigo-200 w-full max-w-md focus:outline-none transition font-mono"
+                        />
                       </div>
                     </div>
 

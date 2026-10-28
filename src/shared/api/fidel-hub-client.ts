@@ -631,18 +631,28 @@ export function saveStoredMessagesMap(map: Record<string, OmniMessage[]>): void 
 
 export function getStoredMcpServers(): McpServerSummary[] {
   const loaded = loadFromStorage(STORAGE_KEYS.MCP_SERVERS, INITIAL_MCP_SERVERS);
-  if (isBrowserProd) {
-    return loaded.map((s) => {
+  let changed = false;
+  const list = loaded.map((s) => {
+    if (s.id === 'mcp_fidel_official') {
       if (
-        s.id === 'mcp_fidel_official' &&
-        (s.endpointUrl.includes('localhost') || s.endpointUrl.includes('127.0.0.1'))
+        isBrowserProd &&
+        (s.endpointUrl.includes('localhost') ||
+          s.endpointUrl.includes('127.0.0.1') ||
+          s.endpointUrl.includes('3002'))
       ) {
-        return { ...s, endpointUrl: FIDEL_MCP_DEFAULT_URL };
+        changed = true;
+        return {
+          ...s,
+          endpointUrl: 'https://fidelback-mcp.onrender.com/api/mcp',
+        };
       }
-      return s;
-    });
+    }
+    return s;
+  });
+  if (changed) {
+    saveToStorage(STORAGE_KEYS.MCP_SERVERS, list);
   }
-  return loaded;
+  return list;
 }
 
 export function saveStoredMcpServers(servers: McpServerSummary[]): void {
@@ -879,6 +889,63 @@ export async function orchestrateFidelMcpReply(
     servers.find((s) => s.isActive) ||
     servers[0];
 
+  // 1. LLAMADA REAL A FIDELBACK_MCP (/api/chat/send)
+  try {
+    const rawUrl = (activeServer?.endpointUrl || FIDEL_MCP_DEFAULT_URL).replace(/\/+$/, '');
+    let chatBase = rawUrl;
+    if (isBrowserProd && (chatBase.includes('localhost') || chatBase.includes('3002'))) {
+      chatBase = 'https://fidelback-mcp.onrender.com/api';
+    } else {
+      chatBase = chatBase.replace(/\/mcp\/?$/, '').replace(/\/execute\/?$/, '');
+      if (!chatBase.endsWith('/api')) {
+        chatBase = `${chatBase}/api`;
+      }
+    }
+    const chatEndpoint = `${chatBase}/chat/send`;
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+
+    const res = await fetch(chatEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: `conv_${conv.id}`,
+        message: latestUserText,
+        tenantSlug: 'clearminds',
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.replyText) {
+        const liveTraces: McpToolExecutionTrace[] = (data.mcpExecutions || []).map(
+          (exec: any, idx: number) => ({
+            id: `trace_live_${Date.now()}_${idx}`,
+            serverId: activeServer?.id || 'mcp_fidel_official',
+            serverName: `FidelMCP — ClearMinds Comercial (Live)`,
+            toolName: exec.toolName,
+            arguments: exec.data || {},
+            result: exec.data || { message: exec.message },
+            status: exec.success ? 'SUCCESS' : 'ERROR',
+            latencyMs: data.metrics?.latencyMs || Math.floor(Math.random() * 40 + 25),
+            timestamp: exec.timestamp || new Date().toISOString(),
+          }),
+        );
+
+        return {
+          replyText: data.replyText,
+          traces: liveTraces,
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('[FidelOrchestrator] Fallback por timeout o desconexión temporal de /chat/send:', err);
+  }
+
+  // 2. Fallback determinístico en caso de timeout
   const traces: McpToolExecutionTrace[] = [];
   const lower = latestUserText.toLowerCase();
 

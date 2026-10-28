@@ -171,6 +171,30 @@ export default function App() {
   }, [messagesMap]);
 
   useEffect(() => {
+    const isBrowserProd =
+      typeof window !== 'undefined' &&
+      window.location.hostname !== 'localhost' &&
+      window.location.hostname !== '127.0.0.1';
+    if (isBrowserProd) {
+      setMcpServers((prev) => {
+        const needsUpdate = prev.some(
+          (s) =>
+            s.id === 'mcp_fidel_official' &&
+            (s.endpointUrl.includes('localhost') || s.endpointUrl.includes('3002')),
+        );
+        if (needsUpdate) {
+          return prev.map((s) =>
+            s.id === 'mcp_fidel_official'
+              ? { ...s, endpointUrl: 'https://fidelback-mcp.onrender.com/api/mcp' }
+              : s,
+          );
+        }
+        return prev;
+      });
+    }
+  }, []);
+
+  useEffect(() => {
     saveStoredMcpServers(mcpServers);
   }, [mcpServers]);
 
