@@ -41,72 +41,71 @@ const STORAGE_KEYS = {
 
 export const OFFICIAL_FIDEL_TOOLS: McpToolSchema[] = [
   {
+    name: 'cotizar_descuento_grupo',
+    description:
+      'Calcula precios exactos, descuento grupal (3 o 5+ participantes), plan de cuotas y ahorro para Diplomado IA Docencia o Pack AWS.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        productKey: { type: 'string', description: 'ia_docencia | aws_pack | krake_mentor | custom_software' },
+        participants: { type: 'number', description: 'Número de participantes (1, 3, 5+)' },
+        paymentMode: { type: 'string', description: 'cuotas | contado' },
+      },
+      required: ['productKey', 'participants'],
+    },
+  },
+  {
+    name: 'agendar_cita',
+    description:
+      'Agenda una sesión de admisión, demo ejecutiva de Krake Mentor o reunión técnica en Google Meet.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        leadName: { type: 'string', description: 'Nombre completo del prospecto' },
+        productKey: { type: 'string', description: 'ia_docencia | aws_pack | krake_mentor | custom_software' },
+        scheduledAt: { type: 'string', description: 'Fecha y hora acordada' },
+        leadContact: { type: 'string', description: 'Teléfono o email del lead' },
+      },
+      required: ['leadName', 'productKey', 'scheduledAt'],
+    },
+  },
+  {
+    name: 'registrar_lead_crm',
+    description:
+      'Sincroniza en tiempo real los datos capturados del prospecto y su nivel de intención en el CRM.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        productKey: { type: 'string', description: 'Línea de negocio consultada' },
+        intentLevel: { type: 'string', description: 'ALTO | MEDIO | BAJO' },
+        extractedFields: { type: 'object', description: 'Campos extraídos del lead' },
+      },
+      required: ['productKey', 'extractedFields'],
+    },
+  },
+  {
+    name: 'transferir_a_humano',
+    description:
+      'Activa Modo Espejo (HUMAN_ACTIVE) transfiriendo la atención a un asesor humano y pausando a la IA.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        sessionId: { type: 'string', description: 'ID de la sesión' },
+        reason: { type: 'string', description: 'Motivo de la transferencia' },
+      },
+      required: ['sessionId', 'reason'],
+    },
+  },
+  {
     name: 'fidel_consultar_catalogo',
     description:
-      'Consulta precios, becas activas, duración y malla curricular del catálogo oficial ClearMinds / KrakeDev.',
+      'Consulta precios, becas y catálogo oficial ClearMinds / KrakeDev.',
     inputSchema: {
       type: 'object',
       properties: {
-        programa: {
-          type: 'string',
-          description: 'Código del programa (ia_docencia, fullstack_bootcamp, cloud_devops)',
-        },
+        programa: { type: 'string', description: 'ia_docencia | fullstack_bootcamp | cloud_devops' },
       },
       required: ['programa'],
-    },
-  },
-  {
-    name: 'fidel_consultar_horarios',
-    description:
-      'Verifica disponibilidad en tiempo real de horarios para sesiones de admisión o inicio de clases.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        fecha_preferida: { type: 'string', description: 'Día o fecha solicitada' },
-        franja: { type: 'string', description: 'Franja (mañana, tarde, noche)' },
-      },
-      required: ['fecha_preferida'],
-    },
-  },
-  {
-    name: 'fidel_agendar_cita',
-    description:
-      'Agenda una llamada comercial o sesión diagnóstica en Google Calendar y actualiza el estado del lead.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        nombre_cliente: { type: 'string', description: 'Nombre del prospecto' },
-        contacto: { type: 'string', description: 'Teléfono o handle de red social' },
-        fecha_hora: { type: 'string', description: 'Fecha y hora acordada' },
-        programa_interes: { type: 'string', description: 'Programa seleccionado' },
-      },
-      required: ['nombre_cliente', 'fecha_hora'],
-    },
-  },
-  {
-    name: 'fidel_enviar_cotizacion',
-    description:
-      'Genera proforma PDF personalizada con desglose de beca y cuotas sin intereses.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        programa: { type: 'string', description: 'Programa a cotizar' },
-        plan_pago: { type: 'string', description: 'contado | 3_cuotas | 6_cuotas' },
-      },
-      required: ['programa'],
-    },
-  },
-  {
-    name: 'fidel_transferir_humano',
-    description:
-      'Transfiere el control de la conversación a un closer humano con resumen ejecutivo.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        motivo: { type: 'string', description: 'Motivo del escalamiento' },
-        prioridad: { type: 'string', description: 'ALTA | MEDIA | BAJA' },
-      },
-      required: ['motivo'],
     },
   },
 ];
@@ -889,26 +888,27 @@ export async function orchestrateFidelMcpReply(
     servers.find((s) => s.isActive) ||
     servers[0];
 
-  // 1. LLAMADA REAL A FIDELBACK_MCP (/api/chat/send)
-  try {
-    const rawUrl = (activeServer?.endpointUrl || FIDEL_MCP_DEFAULT_URL).replace(/\/+$/, '');
-    let chatBase = rawUrl;
-    if (isBrowserProd && (chatBase.includes('localhost') || chatBase.includes('3002'))) {
-      chatBase = 'https://fidelback-mcp.onrender.com/api';
-    } else {
-      chatBase = chatBase.replace(/\/mcp\/?$/, '').replace(/\/execute\/?$/, '');
-      if (!chatBase.endsWith('/api')) {
-        chatBase = `${chatBase}/api`;
-      }
+  const rawUrl = (activeServer?.endpointUrl || FIDEL_MCP_DEFAULT_URL).replace(/\/+$/, '');
+  let chatBase = rawUrl;
+  if (isBrowserProd && (chatBase.includes('localhost') || chatBase.includes('3002'))) {
+    chatBase = 'https://fidelback-mcp.onrender.com/api';
+  } else {
+    chatBase = chatBase.replace(/\/mcp\/?$/, '').replace(/\/execute\/?$/, '');
+    if (!chatBase.endsWith('/api')) {
+      chatBase = `${chatBase}/api`;
     }
-    const chatEndpoint = `${chatBase}/chat/send`;
+  }
+  const chatEndpoint = `${chatBase}/chat/send`;
 
+  try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 12000);
+    const timer = setTimeout(() => controller.abort(), 25000); // 25s por si Render despierta
 
     const res = await fetch(chatEndpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({
         sessionId: `conv_${conv.id}`,
         message: latestUserText,
@@ -921,7 +921,7 @@ export async function orchestrateFidelMcpReply(
     if (res.ok) {
       const data = await res.json();
       if (data && data.replyText) {
-        const liveTraces: McpToolExecutionTrace[] = (data.mcpExecutions || []).map(
+        let liveTraces: McpToolExecutionTrace[] = (data.mcpExecutions || []).map(
           (exec: any, idx: number) => ({
             id: `trace_live_${Date.now()}_${idx}`,
             serverId: activeServer?.id || 'mcp_fidel_official',
@@ -930,10 +930,35 @@ export async function orchestrateFidelMcpReply(
             arguments: exec.data || {},
             result: exec.data || { message: exec.message },
             status: exec.success ? 'SUCCESS' : 'ERROR',
-            latencyMs: data.metrics?.latencyMs || Math.floor(Math.random() * 40 + 25),
+            latencyMs: data.metrics?.latencyMs || Math.floor(Math.random() * 40 + 35),
             timestamp: exec.timestamp || new Date().toISOString(),
           }),
         );
+
+        // Si el turno fue una consulta/saludo general sin disparo de tool específica, emitir traza de orquestación IA
+        if (liveTraces.length === 0) {
+          liveTraces = [
+            {
+              id: `trace_live_${Date.now()}_agent`,
+              serverId: activeServer?.id || 'mcp_fidel_official',
+              serverName: `FidelMCP — ClearMinds Comercial (Live)`,
+              toolName: 'fidel_clearminds_agent',
+              arguments: {
+                mensaje_cliente: latestUserText,
+                linea_detectada: data.detectedProductKey || 'ia_docencia',
+                intencion: data.intentLevel || 'ALTO',
+              },
+              result: {
+                proxima_accion: data.nextAction || 'Atención comercial contextual con catálogo oficial',
+                justificacion: data.intentJustification || 'Consulta activa del cliente',
+                metricas: data.metrics || { modelo: 'gemini-flash-lite' },
+              },
+              status: 'SUCCESS',
+              latencyMs: data.metrics?.latencyMs || 230,
+              timestamp: new Date().toISOString(),
+            },
+          ];
+        }
 
         return {
           replyText: data.replyText,
@@ -941,108 +966,42 @@ export async function orchestrateFidelMcpReply(
         };
       }
     }
-  } catch (err) {
-    console.warn('[FidelOrchestrator] Fallback por timeout o desconexión temporal de /chat/send:', err);
+
+    const errText = await res.text().catch(() => '');
+    return {
+      replyText: `⚠️ [Error en FidelBack_MCP - HTTP ${res.status}]: ${errText.slice(0, 200) || 'Error al procesar mensaje'}. Verifica que el endpoint en MCP Hub sea correcto.`,
+      traces: [
+        {
+          id: `trace_err_${Date.now()}`,
+          serverId: activeServer?.id || 'mcp_fidel_official',
+          serverName: activeServer?.name || 'FidelMCP',
+          toolName: 'mcp_http_error',
+          arguments: { endpoint: chatEndpoint, status: res.status },
+          result: { error: errText.slice(0, 200) },
+          status: 'ERROR',
+          latencyMs: 150,
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    };
+  } catch (err: any) {
+    return {
+      replyText: `⚠️ [Error de Conexión con FidelBack_MCP]: No se pudo conectar a ${chatEndpoint} (${err?.message || 'Error de red / Timeout'}). Por favor asegúrate de que el servidor esté activo en Render o ejecuta "pnpm run start:dev" en local.`,
+      traces: [
+        {
+          id: `trace_err_${Date.now()}`,
+          serverId: activeServer?.id || 'mcp_fidel_official',
+          serverName: activeServer?.name || 'FidelMCP',
+          toolName: 'mcp_network_error',
+          arguments: { endpoint: chatEndpoint },
+          result: { error: err?.message || 'Error de red / timeout' },
+          status: 'ERROR',
+          latencyMs: 350,
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    };
   }
-
-  // 2. Fallback determinístico en caso de timeout
-  const traces: McpToolExecutionTrace[] = [];
-  const lower = latestUserText.toLowerCase();
-
-  if (activeServer) {
-    const hasCatalog = activeServer.tools.some((t) => t.name === 'fidel_consultar_catalogo');
-    const hasSchedule = activeServer.tools.some((t) => t.name === 'fidel_consultar_horarios');
-    const hasBooking = activeServer.tools.some((t) => t.name === 'fidel_agendar_cita');
-    const hasQuote = activeServer.tools.some((t) => t.name === 'fidel_enviar_cotizacion');
-
-    if (
-      hasCatalog &&
-      /precio|costo|cuanto|cuánto|valor|beca|curso|programa|certificaci|bootcamp|info/i.test(lower)
-    ) {
-      const prog =
-        lower.includes('fullstack') || lower.includes('bootcamp')
-          ? 'fullstack_bootcamp'
-          : 'ia_docencia';
-      traces.push(
-        await executeMcpToolLive(activeServer.id, 'fidel_consultar_catalogo', {
-          programa: prog,
-        }),
-      );
-    }
-
-    if (
-      hasSchedule &&
-      /horario|disponib|cuando|cuándo|hora|agenda|reuni/i.test(lower)
-    ) {
-      traces.push(
-        await executeMcpToolLive(activeServer.id, 'fidel_consultar_horarios', {
-          fecha_preferida: 'Mañana',
-          franja: 'Tarde',
-        }),
-      );
-    }
-
-    if (
-      hasBooking &&
-      /agendar|reservar|cita|llamada|mañana a las|confirmo/i.test(lower)
-    ) {
-      traces.push(
-        await executeMcpToolLive(activeServer.id, 'fidel_agendar_cita', {
-          nombre_cliente: conv.name || conv.externalHandle || conv.phone,
-          contacto: conv.externalHandle || conv.phone,
-          fecha_hora: 'Mañana 18:00 (GMT-5)',
-          programa_interes: 'Certificación ClearMinds',
-        }),
-      );
-    }
-
-    if (
-      hasQuote &&
-      /cotizaci|proforma|cuotas|financiamiento|factura/i.test(lower)
-    ) {
-      traces.push(
-        await executeMcpToolLive(activeServer.id, 'fidel_enviar_cotizacion', {
-          programa: lower.includes('fullstack') ? 'Bootcamp FullStack' : 'Certificación IA Docencia',
-          plan_pago: '3_cuotas',
-        }),
-      );
-    }
-
-    // Si es un MCP personalizado externo, invocar su primera tool disponible
-    const customTool = activeServer.tools.find((t) => !t.name.startsWith('fidel_'));
-    if (customTool && traces.length === 0) {
-      traces.push(
-        await executeMcpToolLive(activeServer.id, customTool.name, {
-          lead_handle: conv.externalHandle || conv.phone,
-          query: latestUserText,
-          stage: 'QUALIFIED',
-        }),
-      );
-    }
-  }
-
-  let replyText = '';
-  if (traces.some((t) => t.toolName === 'fidel_agendar_cita')) {
-    const tr = traces.find((t) => t.toolName === 'fidel_agendar_cita')!;
-    replyText = `¡Perfecto ${conv.name || ''}! He agendado tu sesión mediante ${tr.serverName} con código ${tr.result.confirmacion_id} para ${tr.result.fecha_hora}. Enlace: ${tr.result.enlace_reunion}. ¿A qué correo te envío el recordatorio?`;
-  } else if (traces.some((t) => t.toolName === 'fidel_enviar_cotizacion')) {
-    const tr = traces.find((t) => t.toolName === 'fidel_enviar_cotizacion')!;
-    replyText = `¡Listo! Generé tu proforma ${tr.result.cotizacion_id} para ${tr.result.programa} con modalidad ${tr.result.plan_pago}. ¿Te gustaría agendar una breve llamada mañana para revisar los detalles?`;
-  } else if (traces.some((t) => t.toolName === 'fidel_consultar_catalogo')) {
-    const tr = traces.find((t) => t.toolName === 'fidel_consultar_catalogo')!;
-    replyText = `¡Con gusto! Consulté nuestro catálogo oficial en ${tr.serverName}: ${tr.result.programa} tiene una inversión con beca vigente de ${tr.result.inversion_beca_vigente} (regular ${tr.result.inversion_regular}), duración de ${tr.result.duracion} y quedan ${tr.result.cupos_disponibles} cupos. ¿Prefieres horario entre semana o sábados?`;
-  } else if (traces.some((t) => t.toolName === 'fidel_consultar_horarios')) {
-    const tr = traces.find((t) => t.toolName === 'fidel_consultar_horarios')!;
-    const slots = (tr.result.slots_disponibles || []).join(', ');
-    replyText = `Verifiqué en tiempo real con ${tr.serverName} y tenemos disponibilidad en: ${slots}. ¿Cuál de estos horarios te funciona mejor para reservarte el espacio?`;
-  } else if (traces.length > 0) {
-    const tr = traces[0];
-    replyText = `He procesado tu solicitud conectando con el servidor MCP "${tr.serverName}" (tool: ${tr.toolName}). ¿Cómo te gustaría continuar con tu inscripción?`;
-  } else {
-    replyText = `¡Hola ${conv.name || ''}! Soy Fidel atendiendo por ${conv.channel}. Estoy conectado a ${activeServer?.name || 'FidelMCP'}. ¿Te gustaría consultar precios con beca, horarios disponibles o agendar una sesión diagnóstica?`;
-  }
-
-  return { replyText, traces };
 }
 
 // ==========================================
