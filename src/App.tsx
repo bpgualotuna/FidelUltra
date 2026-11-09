@@ -410,7 +410,7 @@ export default function App() {
         assignedToUserId: ORG_AGENTS[0].id,
         assignedAgentName: ORG_AGENTS[0].displayName,
         isNewLead: true,
-        isAiActive: true,
+        isAiActive: false,
         extractedData: {
           Canal: CHANNEL_META[simChannel].label,
           Handle: simHandle.trim(),

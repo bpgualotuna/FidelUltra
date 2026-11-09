@@ -240,7 +240,7 @@ const INITIAL_CONVERSATIONS: OmniConversation[] = [
     assignedToUserId: 'agent_brayan',
     assignedAgentName: 'Brayan Gualotuña (Admin)',
     isNewLead: false,
-    isAiActive: true,
+    isAiActive: false,
     isTrainingMode: false,
     extractedData: {
       Perfil: 'Docente Universitaria',
@@ -266,7 +266,7 @@ const INITIAL_CONVERSATIONS: OmniConversation[] = [
     assignedToUserId: 'agent_carla',
     assignedAgentName: 'Carla Viteri (Closer Senior)',
     isNewLead: true,
-    isAiActive: true,
+    isAiActive: false,
     isTrainingMode: false,
     extractedData: {
       Origen: 'Instagram Reel Orgánico',
@@ -292,7 +292,7 @@ const INITIAL_CONVERSATIONS: OmniConversation[] = [
     assignedToUserId: 'agent_mateo',
     assignedAgentName: 'Mateo Andrade (Admisiones)',
     isNewLead: true,
-    isAiActive: true,
+    isAiActive: false,
     isTrainingMode: false,
     extractedData: {
       Origen: 'TikTok Live',
