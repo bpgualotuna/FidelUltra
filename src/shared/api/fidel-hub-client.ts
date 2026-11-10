@@ -242,6 +242,15 @@ const INITIAL_CONVERSATIONS: OmniConversation[] = [
     isNewLead: false,
     isAiActive: false,
     isTrainingMode: false,
+    campaignId: 'camp_meta_ads_q4',
+    campaignName: 'Meta Ads Q4 - Diplomados Tech',
+    adReferral: {
+      headline: 'Diplomado IA & Productividad Docente 2026',
+      sourceId: 'ad_2385102948102',
+      sourceType: 'ad',
+      imageUrl: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=80',
+      body: 'Acelera tus clases con IA generativa. Postula a becas del 40% este mes.',
+    },
     extractedData: {
       Perfil: 'Docente Universitaria',
       Programa: 'IA Aplicada a la Docencia',
@@ -268,6 +277,15 @@ const INITIAL_CONVERSATIONS: OmniConversation[] = [
     isNewLead: true,
     isAiActive: false,
     isTrainingMode: false,
+    campaignId: 'camp_ig_bootcamp',
+    campaignName: 'Instagram Ads - FullStack Summer',
+    adReferral: {
+      headline: 'Conviértete en FullStack Developer en 16 Semanas',
+      sourceId: 'ig_ad_99210284',
+      sourceType: 'ad',
+      imageUrl: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=600&auto=format&fit=crop&q=80',
+      body: 'Aprende React, Node.js, Next.js y Cloud. Pagos mensuales sin intereses.',
+    },
     extractedData: {
       Origen: 'Instagram Reel Orgánico',
       Programa: 'Bootcamp FullStack & Cloud',
@@ -294,6 +312,15 @@ const INITIAL_CONVERSATIONS: OmniConversation[] = [
     isNewLead: true,
     isAiActive: false,
     isTrainingMode: false,
+    campaignId: 'camp_tk_spark',
+    campaignName: 'TikTok Spark Ads - Becas Tech 50%',
+    adReferral: {
+      headline: 'Beca Talento Tech 50% - Nextline Edu',
+      sourceId: 'tk_spark_8820194',
+      sourceType: 'ad',
+      imageUrl: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=600&auto=format&fit=crop&q=80',
+      body: 'Comenta o dale click para solicitar tu formulario de postulación a la beca.',
+    },
     extractedData: {
       Origen: 'TikTok Live',
       Solicitud: 'Agendar cita mañana tarde',
@@ -320,6 +347,15 @@ const INITIAL_CONVERSATIONS: OmniConversation[] = [
     isNewLead: false,
     isAiActive: false,
     isTrainingMode: false,
+    campaignId: 'camp_fb_b2b',
+    campaignName: 'Facebook B2B - Capacitación Corporativa',
+    adReferral: {
+      headline: 'Programas Corporativos In-Company en IA Empresarial',
+      sourceId: 'fb_ad_7741029',
+      sourceType: 'ad',
+      imageUrl: 'https://images.unsplash.com/photo-1552664730-d307ca884978?w=600&auto=format&fit=crop&q=80',
+      body: 'Capacita a tus equipos de ingeniería y docencia con planes a medida corporativos.',
+    },
     extractedData: {
       Segmento: 'B2B / Institución Educativa',
       Cupos: '5 licencias',
@@ -613,7 +649,16 @@ function saveToStorage<T>(key: string, value: T): void {
 }
 
 export function getStoredConversations(): OmniConversation[] {
-  return loadFromStorage(STORAGE_KEYS.CONVERSATIONS, INITIAL_CONVERSATIONS);
+  const loaded = loadFromStorage(STORAGE_KEYS.CONVERSATIONS, INITIAL_CONVERSATIONS);
+  return loaded.map((c) => {
+    const initMatch = INITIAL_CONVERSATIONS.find((i) => i.id === c.id);
+    return {
+      ...c,
+      campaignId: c.campaignId ?? initMatch?.campaignId ?? null,
+      campaignName: c.campaignName ?? initMatch?.campaignName ?? null,
+      adReferral: c.adReferral ?? initMatch?.adReferral ?? null,
+    };
+  });
 }
 
 export function saveStoredConversations(list: OmniConversation[]): void {
@@ -626,6 +671,109 @@ export function getStoredMessagesMap(): Record<string, OmniMessage[]> {
 
 export function saveStoredMessagesMap(map: Record<string, OmniMessage[]>): void {
   saveToStorage(STORAGE_KEYS.MESSAGES, map);
+}
+
+export const DEFAULT_BROADCAST_TEMPLATES: BroadcastTemplate[] = [
+  {
+    id: 'tmpl_promo_diplomado_2026',
+    name: 'promocion_diplomado_2026',
+    language: 'es',
+    status: 'APPROVED',
+    category: 'MARKETING',
+    headerType: 'IMAGE',
+    bodyText: 'Hola {{1}}, tenemos una excelente noticia. Se han liberado 15 cupos especiales con beca del 45% para el programa {{2}}. ¿Te gustaría que te reservemos un cupo para esta convocatoria?',
+    footerText: 'Nextline Tech Academy · Responde STOP para no recibir más mensajes',
+    variables: ['{{nombre}}', '{{programa}}'],
+    buttons: [
+      { type: 'QUICK_REPLY', text: 'Quiero información' },
+      { type: 'QUICK_REPLY', text: 'Ahora no, gracias' },
+      { type: 'URL', text: 'Ver Temario Oficial', url: 'https://nextline.tech/programas' },
+    ],
+  },
+  {
+    id: 'tmpl_recordatorio_evento_ia',
+    name: 'recordatorio_masterclass_ia',
+    language: 'es',
+    status: 'APPROVED',
+    category: 'UTILITY',
+    headerType: 'TEXT',
+    headerText: '🔴 RECORDATORIO MASTERCLASS EN VIVO',
+    bodyText: 'Hola {{1}}, te recordamos que hoy a las 19:00 (GMT-5) inicia la Masterclass en vivo: {{2}}. Ingresa 5 minutos antes con tu enlace personal.',
+    footerText: 'ClearMinds Consultores & Nextline',
+    variables: ['{{nombre}}', '{{tema_evento}}'],
+    buttons: [
+      { type: 'URL', text: 'Acceder a Zoom', url: 'https://zoom.us/j/nextline-ai' },
+      { type: 'QUICK_REPLY', text: 'No podré asistir' },
+    ],
+  },
+  {
+    id: 'tmpl_bienvenida_becas',
+    name: 'bienvenida_postulacion_beca',
+    language: 'es',
+    status: 'APPROVED',
+    category: 'MARKETING',
+    headerType: 'DOCUMENT',
+    bodyText: 'Estimado/a {{1}}, hemos recibido tu solicitud de beca de la campaña publicitaria {{2}}. Adjuntamos el folleto con los requisitos y el cronograma de admisiones.',
+    footerText: 'Comité de Admisiones Nextline',
+    variables: ['{{nombre}}', '{{campaña}}'],
+    buttons: [
+      { type: 'QUICK_REPLY', text: 'Hablar con un asesor' },
+    ],
+  },
+  {
+    id: 'tmpl_seguimiento_asesor',
+    name: 'seguimiento_lead_calificado',
+    language: 'es',
+    status: 'APPROVED',
+    category: 'UTILITY',
+    bodyText: 'Hola {{1}}, un asesor de admisiones estuvo intentando comunicarse contigo respecto a tu interés en {{2}}. ¿A qué hora te quedaría más cómodo recibir una llamada rápida de 5 minutos?',
+    footerText: 'Soporte de Admisiones Fidel AI',
+    variables: ['{{nombre}}', '{{curso}}'],
+    buttons: [
+      { type: 'QUICK_REPLY', text: 'Llamar en la mañana' },
+      { type: 'QUICK_REPLY', text: 'Llamar en la tarde' },
+    ],
+  },
+];
+
+export const INITIAL_BROADCAST_RUNS: BroadcastRun[] = [
+  {
+    id: 'run_101',
+    title: 'Lanzamiento Diplomado IA Docentes - Convocatoria Noviembre',
+    type: 'template',
+    templateName: 'promocion_diplomado_2026',
+    status: 'COMPLETED',
+    totalRecipients: 142,
+    sentCount: 142,
+    failedCount: 0,
+    readCount: 128,
+    repliedCount: 46,
+    channel: 'WHATSAPP',
+    createdAt: new Date(Date.now() - 48 * 3600 * 1000).toISOString(),
+  },
+  {
+    id: 'run_102',
+    title: 'Recordatorio Masterclass Prompt Engineering & RAG',
+    type: 'manual',
+    status: 'COMPLETED',
+    totalRecipients: 85,
+    sentCount: 83,
+    failedCount: 2,
+    readCount: 79,
+    repliedCount: 31,
+    channel: 'WHATSAPP',
+    createdAt: new Date(Date.now() - 18 * 3600 * 1000).toISOString(),
+  },
+];
+
+const BROADCAST_RUNS_STORAGE_KEY = 'fidel_ultra_broadcast_runs_v1';
+
+export function getStoredBroadcastRuns(): BroadcastRun[] {
+  return loadFromStorage(BROADCAST_RUNS_STORAGE_KEY, INITIAL_BROADCAST_RUNS);
+}
+
+export function saveStoredBroadcastRuns(runs: BroadcastRun[]): void {
+  saveToStorage(BROADCAST_RUNS_STORAGE_KEY, runs);
 }
 
 export function getStoredMcpServers(): McpServerSummary[] {
@@ -1195,5 +1343,71 @@ export async function testChannelApiConnection(
     };
   }
 }
+
+export async function generateAiBroadcastDraft(instruction: string): Promise<string> {
+  const token = getStoredAuthToken();
+  if (token) {
+    try {
+      const res = await fetch(`${API_BASE}/broadcast/generate-message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ instruction }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.text) return data.text;
+      }
+    } catch {
+      /* fallback to local generator below */
+    }
+  }
+
+  // Fallback high-converting marketing copywriting generator
+  return `¡Hola {{nombre}}! 👋 Te saludamos de parte de la dirección académica. Notamos tu interés en nuestros programas de formación especializada y queremos ofrecerte una beca exclusiva del 45% con cupos limitados para esta semana.\n\n¿Te gustaría que un asesor te comparta los detalles del temario y las facilidades de financiamiento? 🚀`;
+}
+
+export async function sendBroadcastBatchLive(payload: {
+  title: string;
+  type: 'manual' | 'template' | 'ia';
+  conversationIds: string[];
+  text?: string;
+  templateId?: string;
+  templateVariables?: Record<string, string>;
+  mediaUrl?: string;
+}): Promise<{ ok: boolean; sentCount: number; message: string }> {
+  const token = getStoredAuthToken();
+  if (token) {
+    try {
+      const res = await fetch(`${API_BASE}/broadcast/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return {
+          ok: true,
+          sentCount: data.sent ?? payload.conversationIds.length,
+          message: data.message ?? 'Difusión masiva procesada exitosamente',
+        };
+      }
+    } catch {
+      /* fallback simulation */
+    }
+  }
+
+  return {
+    ok: true,
+    sentCount: payload.conversationIds.length,
+    message: `Envío masivo simulado con éxito a ${payload.conversationIds.length} contactos.`,
+  };
+}
+
 
 

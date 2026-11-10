@@ -19,13 +19,14 @@ import {
   PanelRightOpen,
   PanelRightClose,
   Volume2,
-  FlaskConical,
   ShieldCheck,
   Tag as TagIcon,
   Mail,
   Zap,
   Building2,
   LogOut,
+  Megaphone,
+  Target,
 } from 'lucide-react';
 import type {
   SupportedChannel,
@@ -62,9 +63,9 @@ import {
 import { McpHubView } from './features/mcp-hub/McpHubView';
 import { ChannelsConfigView } from './features/channels/ChannelsConfigView';
 import { LoginView } from './features/auth/LoginView';
-import FidelLabOriginal from './legacy-lab/FidelLabOriginal';
+import { BroadcastView } from './features/broadcast/BroadcastView';
 
-type MainNavTab = 'inbox' | 'mcp_hub' | 'channels' | 'contacts' | 'legacy_lab';
+type MainNavTab = 'inbox' | 'mcp_hub' | 'channels' | 'contacts' | 'broadcast';
 
 const OMNICHANNEL_SIMULATOR_PRESETS: Array<{
   label: string;
@@ -130,6 +131,8 @@ export default function App() {
   const [channelFilter, setChannelFilter] = useState<'ALL' | SupportedChannel>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedConvId, setSelectedConvId] = useState<string>('conv_wa_1');
+  const [contactsCampaignFilter, setContactsCampaignFilter] = useState<string>('ALL');
+  const [contactsChannelFilter, setContactsChannelFilter] = useState<string>('ALL');
 
   // Chat composer & panels
   const [replyInput, setReplyInput] = useState('');
@@ -627,15 +630,15 @@ export default function App() {
 
           <button
             type="button"
-            onClick={() => setActiveTab('legacy_lab')}
+            onClick={() => setActiveTab('broadcast')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
-              activeTab === 'legacy_lab'
-                ? 'bg-amber-600 text-white shadow'
+              activeTab === 'broadcast'
+                ? 'bg-purple-600 text-white shadow'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            <FlaskConical className="w-3.5 h-3.5" />
-            Lab Clásico
+            <Megaphone className="w-3.5 h-3.5" />
+            Envíos Masivos
           </button>
         </nav>
 
@@ -702,31 +705,73 @@ export default function App() {
         />
       )}
 
-      {activeTab === 'legacy_lab' && (
-        <div className="flex-1 overflow-auto">
-          <FidelLabOriginal />
-        </div>
+      {activeTab === 'broadcast' && (
+        <BroadcastView
+          conversations={conversations}
+          onOpenConversation={(convId) => {
+            setSelectedConvId(convId);
+            setActiveTab('inbox');
+          }}
+          notify={notify}
+        />
       )}
 
       {activeTab === 'contacts' && (
         <div className="flex-1 overflow-y-auto p-6 space-y-5 bg-slate-950">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+          <div className="flex flex-wrap items-center justify-between border-b border-slate-800 pb-4 gap-4">
             <div>
-              <h1 className="text-lg font-bold text-white">
+              <h1 className="text-lg font-bold text-white flex items-center gap-2">
+                <Users className="w-5 h-5 text-emerald-400" />
                 Directorio Omnicanal de Contactos & Leads
               </h1>
               <p className="text-xs text-slate-400">
-                Contactos unificados provenientes de WhatsApp, Instagram Direct, Facebook Messenger y TikTok.
+                Contactos unificados con atribución publicitaria de Meta Ads, Instagram Ads, TikTok Spark Ads y WhatsApp.
               </p>
+            </div>
+
+            {/* Campaign & Channel quick filters */}
+            <div className="flex items-center gap-3 text-xs">
+              <div className="flex items-center gap-1.5 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
+                <span className="text-slate-400 text-[11px]">Canal:</span>
+                <select
+                  value={contactsChannelFilter}
+                  onChange={(e) => setContactsChannelFilter(e.target.value)}
+                  className="bg-transparent text-white font-medium focus:outline-none cursor-pointer"
+                >
+                  <option value="ALL" className="bg-slate-900">Todos</option>
+                  <option value="WHATSAPP" className="bg-slate-900">WhatsApp</option>
+                  <option value="INSTAGRAM" className="bg-slate-900">Instagram</option>
+                  <option value="FACEBOOK" className="bg-slate-900">Facebook</option>
+                  <option value="TIKTOK" className="bg-slate-900">TikTok</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-1.5 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
+                <Target className="w-3.5 h-3.5 text-purple-400" />
+                <span className="text-slate-400 text-[11px]">Campaña:</span>
+                <select
+                  value={contactsCampaignFilter}
+                  onChange={(e) => setContactsCampaignFilter(e.target.value)}
+                  className="bg-transparent text-white font-medium focus:outline-none cursor-pointer max-w-[200px] truncate"
+                >
+                  <option value="ALL" className="bg-slate-900">Todas las campañas</option>
+                  {Array.from(new Set(conversations.map((c) => c.campaignName).filter(Boolean))).map((camp) => (
+                    <option key={camp} value={camp!} className="bg-slate-900">
+                      {camp}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-800 overflow-hidden bg-slate-900/60">
+          <div className="rounded-xl border border-slate-800 overflow-hidden bg-slate-900/60 shadow-lg">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-900 text-slate-400 uppercase text-[11px] border-b border-slate-800">
                 <tr>
                   <th className="py-3 px-4">Contacto</th>
                   <th className="py-3 px-4">Canal</th>
+                  <th className="py-3 px-4">Campaña Publicitaria</th>
                   <th className="py-3 px-4">Identificador / Handle</th>
                   <th className="py-3 px-4">Etiqueta</th>
                   <th className="py-3 px-4">MCP Asignado</th>
@@ -735,56 +780,72 @@ export default function App() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/70">
-                {conversations.map((c) => {
-                  const srv = mcpServers.find((s) => s.id === c.activeMcpServerId);
-                  return (
-                    <tr key={c.id} className="hover:bg-slate-800/40">
-                      <td className="py-3 px-4 font-semibold text-white">
-                        {c.name || 'Sin nombre'}
-                        {c.email && (
-                          <div className="text-[11px] text-slate-400 font-normal">{c.email}</div>
-                        )}
-                      </td>
-                      <td className="py-3 px-4">
-                        <ChannelBadge channel={c.channel} />
-                      </td>
-                      <td className="py-3 px-4 font-mono text-slate-300">
-                        {c.externalHandle || c.phone}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300">
-                          {c.tag || 'General'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-indigo-300 font-medium">
-                        {srv?.name || 'FidelMCP'}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            c.isAiActive
-                              ? 'bg-emerald-500/20 text-emerald-300'
-                              : 'bg-amber-500/20 text-amber-300'
-                          }`}
-                        >
-                          {c.isAiActive ? 'Fidel IA Activo' : 'Agente Humano'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedConvId(c.id);
-                            setActiveTab('inbox');
-                          }}
-                          className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold"
-                        >
-                          Abrir Chat
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {conversations
+                  .filter((c) => {
+                    if (contactsChannelFilter !== 'ALL' && c.channel !== contactsChannelFilter) return false;
+                    if (contactsCampaignFilter !== 'ALL' && c.campaignName !== contactsCampaignFilter) return false;
+                    return true;
+                  })
+                  .map((c) => {
+                    const srv = mcpServers.find((s) => s.id === c.activeMcpServerId);
+                    return (
+                      <tr key={c.id} className="hover:bg-slate-800/40 transition">
+                        <td className="py-3 px-4 font-semibold text-white">
+                          {c.name || 'Sin nombre'}
+                          {c.email && (
+                            <div className="text-[11px] text-slate-400 font-normal">{c.email}</div>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          <ChannelBadge channel={c.channel} />
+                        </td>
+                        <td className="py-3 px-4">
+                          {c.campaignName ? (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/15 text-purple-300 border border-purple-500/30">
+                              <Target className="w-2.5 h-2.5 shrink-0" />
+                              <span className="truncate max-w-[180px]">{c.campaignName}</span>
+                            </span>
+                          ) : (
+                            <span className="text-slate-500 text-[11px]">Orgánico / Directo</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 font-mono text-slate-300">
+                          {c.externalHandle || c.phone}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300">
+                            {c.tag || 'General'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-indigo-300 font-medium">
+                          {srv?.name || 'FidelMCP'}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              c.isAiActive
+                                ? 'bg-emerald-500/20 text-emerald-300'
+                                : 'bg-amber-500/20 text-amber-300'
+                            }`}
+                          >
+                            {c.isAiActive ? 'Fidel IA Activo' : 'Agente Humano'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedConvId(c.id);
+                              setActiveTab('inbox');
+                            }}
+                            className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition"
+                          >
+                            Abrir Chat
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </div>
@@ -904,6 +965,12 @@ export default function App() {
                             {conv.tag}
                           </span>
                         )}
+                        {conv.campaignName && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-purple-500/15 text-purple-300 font-medium border border-purple-500/25 truncate max-w-[130px]">
+                            <Target className="w-2.5 h-2.5 shrink-0" />
+                            {conv.campaignName}
+                          </span>
+                        )}
                       </div>
 
                       {conv.unreadCount > 0 && (
@@ -933,6 +1000,12 @@ export default function App() {
                         {selectedConversation.name || selectedConversation.phone}
                       </h2>
                       <ChannelBadge channel={selectedConversation.channel} />
+                      {selectedConversation.campaignName && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/15 text-purple-300 border border-purple-500/30 truncate max-w-[200px]">
+                          <Target className="w-2.5 h-2.5 shrink-0 text-purple-400" />
+                          {selectedConversation.campaignName}
+                        </span>
+                      )}
                     </div>
                     <div className="text-xs text-slate-400 font-mono truncate">
                       {selectedConversation.externalHandle || selectedConversation.phone}
@@ -1485,6 +1558,62 @@ export default function App() {
                       </option>
                     ))}
                   </select>
+                </div>
+
+                {/* Marketing Campaign Attribution & Creative Info */}
+                <div className="pt-3 border-t border-slate-800 space-y-2">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1.5">
+                    <Target className="w-3.5 h-3.5" />
+                    Atribución Publicitaria & Campaña
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2.5">
+                    <div>
+                      <div className="text-slate-400 text-[10px]">Campaña Detectada:</div>
+                      <div className="font-bold text-white text-xs mt-0.5 flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+                        {selectedConversation.campaignName || 'Tráfico Orgánico / Directo'}
+                      </div>
+                    </div>
+
+                    {selectedConversation.adReferral && (
+                      <div className="space-y-2 pt-2 border-t border-slate-800/80">
+                        {selectedConversation.adReferral.headline && (
+                          <div>
+                            <div className="text-slate-400 text-[10px]">Titular del Anuncio:</div>
+                            <div className="text-slate-200 font-semibold text-xs mt-0.5">
+                              "{selectedConversation.adReferral.headline}"
+                            </div>
+                          </div>
+                        )}
+
+                        {selectedConversation.adReferral.imageUrl && (
+                          <div>
+                            <div className="text-slate-400 text-[10px] mb-1">Creatividad Publicitaria:</div>
+                            <img
+                              src={selectedConversation.adReferral.imageUrl}
+                              alt="Ad Creative"
+                              className="w-full h-32 object-cover rounded-lg border border-slate-700 shadow-md"
+                            />
+                          </div>
+                        )}
+
+                        {selectedConversation.adReferral.body && (
+                          <p className="text-[11px] text-slate-300 italic bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                            {selectedConversation.adReferral.body}
+                          </p>
+                        )}
+
+                        {selectedConversation.adReferral.sourceId && (
+                          <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                            <span>Ad ID: {selectedConversation.adReferral.sourceId}</span>
+                            <span className="px-1.5 py-0.5 rounded bg-slate-800 text-purple-300 capitalize text-[9px]">
+                              {selectedConversation.adReferral.sourceType || 'Meta Ad'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 

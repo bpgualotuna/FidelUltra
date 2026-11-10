@@ -89,6 +89,16 @@ export interface OmniMessage {
   isReply?: boolean;
 }
 
+export interface AdReferralInfo {
+  headline?: string;
+  sourceId?: string;
+  sourceType?: 'ad' | 'post' | string;
+  imageUrl?: string;
+  videoUrl?: string;
+  sourceUrl?: string;
+  body?: string;
+}
+
 export interface OmniConversation {
   id: string;
   phone: string;
@@ -110,7 +120,43 @@ export interface OmniConversation {
   isNewLead?: boolean;
   isAiActive?: boolean;
   isTrainingMode?: boolean;
+  campaignId?: string | null;
+  campaignName?: string | null;
+  adReferral?: AdReferralInfo | null;
   extractedData?: Record<string, string>;
+}
+
+export interface BroadcastTemplate {
+  id: string;
+  name: string;
+  language: string;
+  status: 'APPROVED' | 'PENDING' | 'REJECTED';
+  category: 'MARKETING' | 'UTILITY' | 'AUTHENTICATION';
+  headerType?: 'TEXT' | 'IMAGE' | 'VIDEO' | 'DOCUMENT' | null;
+  headerText?: string;
+  bodyText: string;
+  footerText?: string;
+  variables: string[]; // e.g. ['{{1}}', '{{2}}']
+  buttons?: Array<{
+    type: 'QUICK_REPLY' | 'URL' | 'PHONE_NUMBER';
+    text: string;
+    url?: string;
+  }>;
+}
+
+export interface BroadcastRun {
+  id: string;
+  title: string;
+  type: 'manual' | 'template' | 'ia';
+  status: 'COMPLETED' | 'IN_PROGRESS' | 'SCHEDULED' | 'FAILED';
+  totalRecipients: number;
+  sentCount: number;
+  failedCount: number;
+  readCount?: number;
+  repliedCount?: number;
+  channel: SupportedChannel;
+  templateName?: string;
+  createdAt: string;
 }
 
 export interface ChannelAccountSummary {
