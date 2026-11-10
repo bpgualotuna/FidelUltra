@@ -515,21 +515,21 @@ export const BroadcastView: React.FC<BroadcastViewProps> = ({
                       onClick={() => handleInsertVariable('{{nombre}}')}
                       className="px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-slate-700 font-mono text-[11px]"
                     >
-                      + {{nombre}}
+                      + {'{{nombre}}'}
                     </button>
                     <button
                       type="button"
                       onClick={() => handleInsertVariable('{{campaña}}')}
                       className="px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-purple-300 border border-slate-700 font-mono text-[11px]"
                     >
-                      + {{campaña}}
+                      + {'{{campaña}}'}
                     </button>
                     <button
                       type="button"
                       onClick={() => handleInsertVariable('{{canal}}')}
                       className="px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 font-mono text-[11px]"
                     >
-                      + {{canal}}
+                      + {'{{canal}}'}
                     </button>
                   </div>
 
